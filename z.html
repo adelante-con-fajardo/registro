@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Registro Guardianes de Colombia</title>
+  <link rel="icon" href="logo.webp" type="image/x-icon">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'co-red':    '#C8102E',
+            'co-yellow': '#FCD116',
+            'co-blue':   '#003087',
+            'co-dark':   '#001A4E',
+            'co-gold':   '#E8A000',
+            'co-light':  '#EEF3FF',
+          },
+          fontFamily: {
+            display: ['Playfair Display', 'serif'],
+            body:    ['Source Sans 3', 'sans-serif'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    /* ── Configuración Supabase ──────────────────────────────────────── */
+    /* INSTRUCCIONES:
+       1. Ve a https://supabase.com y crea un proyecto gratis.
+       2. En "Table Editor" crea una tabla llamada "registros" con estas columnas:
+            id              (int8, PK, auto-increment)
+            created_at      (timestamptz, default now())
+            primer_nombre   (text, not null)
+            whatsapp        (text, not null)
+            municipio       (text, not null)
+            actividades     (text, not null)      -- se guarda como JSON array
+            correo          (text, nullable)
+            recibir_info    (bool, default false)
+            autoriza_datos  (bool, default false)
+       3. En "Settings → API" copia tu Project URL y anon/public key.
+       4. Reemplaza SUPABASE_URL y SUPABASE_ANON_KEY abajo.
+    */
+    :root {
+      --co-red:    #C8102E;
+      --co-yellow: #FCD116;
+      --co-blue:   #003087;
+      --co-dark:   #001A4E;
+      --co-gold:   #E8A000;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Source Sans 3', sans-serif;
+      background: var(--co-dark);
+      min-height: 100vh;
+    }
+
+    /* Fondo con patrón geométrico */
+    .bg-pattern {
+      background-color: var(--co-dark);
+      background-image:
+        repeating-linear-gradient(
+          60deg,
+          transparent,
+          transparent 40px,
+          rgba(252,209,22,0.04) 40px,
+          rgba(252,209,22,0.04) 41px
+        ),
+        repeating-linear-gradient(
+          -60deg,
+          transparent,
+          transparent 40px,
+          rgba(200,16,46,0.04) 40px,
+          rgba(200,16,46,0.04) 41px
+        );
+    }
+
+    /* Barra tricolor */
+    .tricolor-bar {
+      height: 7px;
+      background: linear-gradient(to right,
+        var(--co-yellow) 0%   33.33%,
+        var(--co-blue)  33.33% 66.66%,
+        var(--co-red)  66.66% 100%
+      );
+    }
+
+    /* Checkbox / switch custom */
+    .custom-check {
+      accent-color: var(--co-blue);
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    /* Opciones de actividades */
+    .activity-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1.5px solid #d1d5db;
+      background: #f9fafb;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      margin-bottom: 8px;
+      user-select: none;
+    }
+    .activity-option:hover {
+      border-color: var(--co-blue);
+      background: #eef3ff;
+    }
+    .activity-option input[type="checkbox"] {
+      accent-color: var(--co-blue);
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      margin-top: 2px;
+      cursor: pointer;
+    }
+    .activity-option.checked {
+      border-color: var(--co-blue);
+      background: #eef3ff;
+    }
+
+    /* Botón principal */
+    .btn-main {
+      background: linear-gradient(135deg, var(--co-red) 0%, #8B0000 100%);
+      color: #fff;
+      font-family: 'Source Sans 3', sans-serif;
+      font-weight: 600;
+      font-size: 1rem;
+      letter-spacing: 0.03em;
+      padding: 14px 32px;
+      border-radius: 50px;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+      width: 100%;
+      box-shadow: 0 4px 18px rgba(200,16,46,0.35);
+    }
+    .btn-main:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(200,16,46,0.4); }
+    .btn-main:active { transform: translateY(0); }
+    .btn-main:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
+
+    /* Input */
+    .form-input {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1.5px solid #d1d5db;
+      border-radius: 8px;
+      font-family: 'Source Sans 3', sans-serif;
+      font-size: 0.95rem;
+      transition: border-color 0.2s;
+      outline: none;
+      background: #f9fafb;
+      color: #1f2937;
+    }
+    .form-input:focus { border-color: var(--co-blue); background: #fff; box-shadow: 0 0 0 3px rgba(0,48,135,0.12); }
+
+    .form-label {
+      display: block;
+      font-weight: 600;
+      font-size: 0.88rem;
+      color: #374151;
+      margin-bottom: 6px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      padding: 14px 28px;
+      border-radius: 50px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1), opacity 0.4s;
+      opacity: 0;
+      z-index: 9999;
+      white-space: nowrap;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    #toast.success { background: #16a34a; color: #fff; }
+    #toast.error   { background: var(--co-red); color: #fff; }
+
+    /* Escudo decorativo */
+    .shield-icon {
+      width: 64px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+    }
+
+    /* Separador dorado */
+    .gold-sep {
+      width: 60px;
+      height: 3px;
+      background: var(--co-yellow);
+      border-radius: 2px;
+      margin: 12px auto;
+    }
+  </style>
+</head>
+
+<body class="bg-pattern min-h-screen flex flex-col items-center justify-center py-10 px-4">
+
+  <!-- ══ CARD PRINCIPAL ══════════════════════════════════════════════════ -->
+  <div class="w-full max-w-xl">
+
+    <!-- Cabecera azul oscuro -->
+    <div class="rounded-t-2xl overflow-hidden" style="background: var(--co-dark);">
+      <div class="tricolor-bar"></div>
+      <div class="px-8 pt-8 pb-6 text-center">
+
+        <!-- Escudo SVG -->
+        <div class="shield-icon">
+          <svg viewBox="0 0 64 72" fill="none" xmlns="http://www.w3.org/2000/svg" width="64" height="72">
+            <path d="M32 2L60 14V36C60 52 48 64 32 70C16 64 4 52 4 36V14L32 2Z" fill="#FCD116" stroke="#E8A000" stroke-width="1.5"/>
+            <path d="M32 8L54 18V36C54 49 44 59 32 65C20 59 10 49 10 36V18L32 8Z" fill="#003087"/>
+            <path d="M32 18L46 24V34C46 41.5 40 47.5 32 51C24 47.5 18 41.5 18 34V24L32 18Z" fill="#C8102E"/>
+            <circle cx="32" cy="35" r="7" fill="white" opacity="0.9"/>
+            <path d="M29 35L31.5 37.5L36 32" stroke="#003087" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+
+        <h1 class="font-display text-white leading-tight" style="font-size:1.9rem; font-weight:800; letter-spacing:-0.01em;">
+          Registro<br/>
+          <span style="color: var(--co-yellow);">Guardianes de Colombia</span>
+        </h1>
+
+        <div class="gold-sep"></div>
+
+        <p class="text-blue-200 text-sm leading-relaxed mt-2">
+          Únete a la nueva mayoría ciudadana que defiende la estabilidad
+          institucional y el futuro de nuestra democracia.
+        </p>
+      </div>
+    </div>
+
+    <!-- Formulario blanco -->
+    <div class="bg-white rounded-b-2xl shadow-2xl px-8 py-8">
+
+      <form id="form-registro" action="#" method="post" novalidate>
+
+        <!-- ── Primer Nombre ─────────────────────── -->
+        <div class="mb-5">
+          <label for="primer_nombre" class="form-label">
+            <span class="inline-block w-2 h-2 rounded-full mr-1" style="background:var(--co-red); vertical-align:middle;"></span>
+            Primer Nombre
+          </label>
+          <input id="primer_nombre" name="primer_nombre" type="text"
+                 class="form-input" placeholder="Tu primer nombre" required />
+          <p class="error-msg text-xs mt-1" style="color:var(--co-red); display:none;">Campo obligatorio.</p>
+        </div>
+
+        <!-- ── WhatsApp ───────────────────────────── -->
+        <div class="mb-5">
+          <label for="whatsapp" class="form-label">
+            <span class="inline-block w-2 h-2 rounded-full mr-1" style="background:var(--co-red); vertical-align:middle;"></span>
+            WhatsApp o Número de contacto
+          </label>
+          <input id="whatsapp" name="whatsapp" type="tel"
+                 class="form-input" placeholder="Ej. 3001234567" required />
+          <p class="error-msg text-xs mt-1" style="color:var(--co-red); display:none;">Ingresa un número válido.</p>
+        </div>
+
+        <!-- ── Municipio ──────────────────────────── -->
+        <div class="mb-5">
+          <label for="municipio" class="form-label">
+            <span class="inline-block w-2 h-2 rounded-full mr-1" style="background:var(--co-red); vertical-align:middle;"></span>
+            Municipio de Residencia
+          </label>
+          <input id="municipio" name="municipio" type="text"
+                 class="form-input" placeholder="Tu municipio o ciudad" required />
+          <p class="error-msg text-xs mt-1" style="color:var(--co-red); display:none;">Campo obligatorio.</p>
+        </div>
+
+        <!-- ── Actividades ────────────────────────── -->
+        <div class="mb-6">
+          <label class="form-label">
+            <span class="inline-block w-2 h-2 rounded-full mr-1" style="background:var(--co-red); vertical-align:middle;"></span>
+            ¿En qué actividades le gustaría participar? (Puede elegira varias)
+          </label>
+
+          <div id="actividades-container">
+            <!-- opción 1 -->
+            <label class="activity-option">
+              <input type="checkbox" name="actividades" value="Promover el referendo 'Por la Estabilidad de la Constitución 2026-2034'" />
+              <span class="text-sm text-gray-700 leading-snug">Promover el referendo <em>"Por la Estabilidad de la Constitución 2026-2034"</em></span>
+            </label>
+            <!-- opción 2 -->
+            <label class="activity-option">
+              <input type="checkbox" name="actividades" value="Participar en actividades de Dignidad y Compromiso" />
+              <span class="text-sm text-gray-700 leading-snug">Participar en actividades de <strong>Dignidad y Compromiso</strong></span>
+            </label>
+            <!-- opción 3 -->
+            <label class="activity-option">
+              <input type="checkbox" name="actividades" value="Afiliarse al partido Dignidad y Compromiso" />
+              <span class="text-sm text-gray-700 leading-snug">Afiliarse al partido <strong>Dignidad y Compromiso</strong></span>
+            </label>
+          </div>
+          <p class="error-act text-xs mt-1" style="color:var(--co-red); display:none;">Selecciona al menos una actividad.</p>
+        </div>
+
+        <!-- ── Correo (opcional) ──────────────────── -->
+        <div class="mb-6">
+          <label for="correo" class="form-label text-gray-500">
+            Correo Electrónico <span class="font-normal normal-case">(Opcional)</span>
+          </label>
+          <input id="correo" name="correo" type="email"
+                 class="form-input" placeholder="tucorreo@ejemplo.com" />
+          <p class="error-msg text-xs mt-1" style="color:var(--co-red); display:none;">Correo inválido.</p>
+        </div>
+
+        <!-- ── Separador ──────────────────────────── -->
+        <div class="border-t border-gray-200 my-5"></div>
+
+        <!-- ── Checkboxes de consentimiento ─────────── -->
+        <div class="space-y-4 mb-7">
+
+          <!-- Recibir información -->
+          <label class="flex items-start gap-3 cursor-pointer group">
+            <input type="checkbox" id="recibir_info" name="recibir_info"
+                   class="custom-check mt-0.5" />
+            <div>
+              <span class="block text-sm font-semibold" style="color:var(--co-blue);">
+                📩 Quiero recibir información
+              </span>
+              <span class="text-xs text-gray-500">mediante WhatsApp o Correo electrónico</span>
+            </div>
+          </label>
+
+          <!-- Autorización datos -->
+          <label class="flex items-start gap-3 cursor-pointer group">
+            <input type="checkbox" id="autoriza_datos" name="autoriza_datos"
+                   class="custom-check mt-0.5" required />
+            <div>
+              <span class="block text-sm font-semibold text-gray-700">
+                🔒 Autorizo el uso de mis datos
+              </span>
+              <span class="text-xs text-gray-500">para los fines de esta iniciativa ciudadana, conforme a la <strong>Ley 1581 de 2012</strong> de protección de datos personales.</span>
+            </div>
+          </label>
+          <p class="error-auth text-xs mt-1" style="color:var(--co-red); display:none;">Debes autorizar el uso de tus datos para continuar.</p>
+        </div>
+
+        <!-- ── Botón enviar ───────────────────────── -->
+        <button type="submit" class="btn-main" id="btn-submit">
+          Registrarme como Guardián
+        </button>
+
+        <!-- Estado de envío -->
+        <div id="form-status" class="text-center text-sm mt-3" style="display:none; color:var(--co-blue);">
+          Enviando tu registro...
+        </div>
+      </form>
+
+      <!-- Éxito -->
+      <div id="success-msg" style="display:none;" class="text-center py-8">
+        <div class="text-6xl mb-4">La Nueva Mayoría</div>
+        <h2 class="font-display text-2xl font-bold mb-2" style="color:var(--co-dark);">
+          ¡Gracias por unirte!
+        </h2>
+        <p class="text-gray-600 text-sm mb-6">
+          Tu registro fue recibido exitosamente.<br/>Pronto te contactaremos con información de las actividades.
+        </p>
+        <button onclick="resetForm()" class="text-sm font-semibold underline" style="color:var(--co-blue);">
+          Registrar otra persona
+        </button>
+      </div>
+
+      <!-- Pie de página -->
+      <p class="text-center text-xs text-gray-400 mt-6 leading-relaxed">
+        Tus datos son tratados con total confidencialidad y
+        serán usados únicamente para los fines de esta iniciativa ciudadana.<br/>
+        <a href="#" style="color:var(--co-blue);">Política de privacidad</a>
+      </p>
+    </div>
+
+    <!-- Franja inferior tricolor -->
+    <div class="tricolor-bar rounded-b-xl mt-0.5"></div>
+  </div>
+
+  <!-- ══ TOAST ══════════════════════════════════════════════════════════ -->
+  <div id="toast"></div>
+
+
+  <!-- ══ SCRIPTS ════════════════════════════════════════════════════════ -->
+  <script>
+  document.addEventListener('DOMContentLoaded', function () {
+
+    /* ── Credenciales Supabase ────────────────────── */
+    const SUPABASE_URL      = 'https://ppvifhshcxthxgoiygtk.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwdmlmaHNoY3h0aHhnb2l5Z3RrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MjcxNTksImV4cCI6MjA5MTEwMzE1OX0.WEhkYpTOvl2CXl_K8ydc4Z5YbFQHPH2c0T6ik1MOcBU';
+    const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    /* ── Checkboxes de actividades ────────────────── */
+    const actividadesAll = document.querySelectorAll('input[name="actividades"]');
+
+    actividadesAll.forEach(cb => {
+      cb.addEventListener('change', () => {
+        cb.closest('label').classList.toggle('checked', cb.checked);
+      });
+    });
+
+    /* ── Toast ────────────────────────────────────── */
+    function showToast(msg, type) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className   = 'show ' + (type || 'success');
+      setTimeout(() => { t.className = type || 'success'; }, 3800);
+    }
+
+    /* ── Reset ────────────────────────────────────── */
+    window.resetForm = function () {
+      document.getElementById('form-registro').reset();
+      actividadesAll.forEach(cb => {
+        cb.checked = false;
+        cb.closest('label').classList.remove('checked');
+      });
+      document.getElementById('success-msg').style.display   = 'none';
+      document.getElementById('form-registro').style.display = 'block';
+    };
+
+    /* ── Validación y envío ───────────────────────── */
+    document.getElementById('form-registro').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      let valid = true;
+
+      /* Limpiar errores previos */
+      document.querySelectorAll('.error-msg').forEach(el => el.style.display = 'none');
+      var errAct  = document.querySelector('.error-act');
+      var errAuth = document.querySelector('.error-auth');
+      if (errAct)  errAct.style.display  = 'none';
+      if (errAuth) errAuth.style.display = 'none';
+
+      /* Primer nombre */
+      const primerNombre = document.getElementById('primer_nombre').value.trim();
+      if (!primerNombre) {
+        document.querySelector('#primer_nombre ~ .error-msg').style.display = 'block';
+        valid = false;
+      }
+
+      /* WhatsApp */
+      const whatsapp = document.getElementById('whatsapp').value.trim();
+      if (!whatsapp || !/^\+?[\d\s\-]{7,15}$/.test(whatsapp)) {
+        document.querySelector('#whatsapp ~ .error-msg').style.display = 'block';
+        valid = false;
+      }
+
+      /* Municipio */
+      const municipio = document.getElementById('municipio').value.trim();
+      if (!municipio) {
+        document.querySelector('#municipio ~ .error-msg').style.display = 'block';
+        valid = false;
+      }
+
+      /* Actividades — al menos una */
+      const seleccionadas = Array.from(actividadesAll)
+            .filter(cb => cb.checked)
+            .map(cb => cb.value);
+      if (seleccionadas.length === 0) {
+        if (errAct) errAct.style.display = 'block';
+        valid = false;
+      }
+
+      /* Correo opcional pero validado si viene */
+      const correo = document.getElementById('correo').value.trim();
+      if (correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
+        document.querySelector('#correo ~ .error-msg').style.display = 'block';
+        valid = false;
+      }
+
+      /* Autorización obligatoria */
+      const autorizaDatos = document.getElementById('autoriza_datos').checked;
+      if (!autorizaDatos) {
+        if (errAuth) errAuth.style.display = 'block';
+        valid = false;
+      }
+
+      if (!valid) {
+        showToast('Por favor completa los campos requeridos.', 'error');
+        return;
+      }
+
+      /* ── Enviar a Supabase ─────────────────────── */
+      const btn    = document.getElementById('btn-submit');
+      const status = document.getElementById('form-status');
+
+      btn.disabled         = true;
+      status.style.display = 'block';
+      btn.textContent      = 'Enviando…';
+
+      const payload = {
+        primer_nombre:  primerNombre,
+        whatsapp:       whatsapp,
+        municipio:      municipio,
+        actividades:    JSON.stringify(seleccionadas),
+        correo:         correo || null,
+        recibir_info:   document.getElementById('recibir_info').checked,
+        autoriza_datos: autorizaDatos,
+      };
+
+      const { error } = await _supabase.from('registros').insert([payload]);
+
+      btn.disabled         = false;
+      status.style.display = 'none';
+
+      if (error) {
+        console.error(error);
+        showToast('Error al guardar. Intenta de nuevo.', 'error');
+        btn.textContent = 'Registrarme como Guardián';
+      } else {
+        document.getElementById('form-registro').style.display = 'none';
+        document.getElementById('success-msg').style.display   = 'block';
+        showToast('¡Registro exitoso! Bienvenido, Guardián.', 'success');
+      }
+    });
+
+  }); // fin DOMContentLoaded
+  </script>
+</body>
+</html>
